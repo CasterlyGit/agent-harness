@@ -14,6 +14,18 @@
 
 set -euo pipefail
 
+# Preflight: required CLI tools used by bin/*.sh and the skills.
+missing=()
+for cmd in gh jq fswatch; do
+  command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
+done
+if [ "${#missing[@]}" -gt 0 ]; then
+  echo "Missing required tools: ${missing[*]}" >&2
+  echo "Install with: brew install ${missing[*]}" >&2
+  echo "Then make sure 'gh auth status' shows you're logged into GitHub." >&2
+  exit 1
+fi
+
 REPO_DIR=$(cd "$(dirname "$0")" && pwd)
 CLAUDE_CMDS=${CLAUDE_CMDS:-$HOME/.claude/commands}
 BIN_DIR=${BIN_DIR:-$HOME/bin}

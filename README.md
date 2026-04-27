@@ -15,7 +15,8 @@ skills/         Claude Code slash commands (markdown prompts)
   board-setup.md    — apply standard Status/Priority/Target fields to a Project v2
   label-sync.md     — apply standard label kit to a repo
   iterate.md        — legacy: shells out to the Python orchestrator
-  _pipeline/*       — legacy: the 7-stage SDD pipeline prompts (still loadable)
+  ticket.md         — drop a ticket into the Obsidian Specs watcher
+  epic.md           — split a big ticket into N sub-steps, ship one PR
   _templates/*      — issue templates
   _board-kit.json   — Project v2 field config
   _labels.json      — standard label kit
@@ -68,9 +69,20 @@ workspace_tools/   Legacy Python orchestrator (kept around; superseded by skills
   └──────────────────┘
 ```
 
+## What this assumes
+
+- macOS (the bin scripts use BSD-flavored tools; Linux is untested).
+- [Obsidian](https://obsidian.md) installed, with a vault at `~/Documents/ObsidianVault/` (or override with `VAULT=`).
+- [Claude Code](https://claude.com/claude-code) CLI installed and authenticated.
+- `gh`, `jq`, `fswatch` on `PATH` (`brew install gh jq fswatch`).
+- `gh auth status` showing you're logged in to GitHub.
+
 ## Install (one-shot)
 
 ```bash
+brew install gh jq fswatch
+gh auth login   # if not already
+
 git clone https://github.com/CasterlyGit/workspace-tools.git ~/Documents/Dev/workspace-tools
 cd ~/Documents/Dev/workspace-tools
 ./install.sh
