@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import tempfile
 import threading
 import time
@@ -36,8 +37,14 @@ from datetime import datetime
 from pathlib import Path
 
 
-# Watched by ~/bin/inbox-watcher.sh — appending here triggers _status.md regen.
+# Appending here used to be how the renderer found out about progress, via
+# fswatch on the watcher. Turns out macOS FSEvents is unreliable on /tmp
+# (symlinked to /private/tmp) for rapid appends to a writer-held file —
+# events get coalesced or dropped, so _status.md stops redrawing.
+# We still write here for human-readable diagnostics, but the renderer is
+# now driven directly by the heartbeat thread (see _heartbeat_loop).
 _ITER_LOG = "/tmp/inbox-iterate.log"
+_RENDER_SCRIPT = "/Users/casterly/bin/inbox-process.sh"
 
 
 class StateSink:
@@ -146,13 +153,15 @@ class StateSink:
         self._heartbeat_thread = None
 
     def _heartbeat_loop(self) -> None:
-        # Tick every 3s. Writes a fresh `last_heartbeat` to state.json AND
-        # nudges the iterate log so fswatch redraws _status.md.
+        # Tick every 3s. Updates state.json's last_heartbeat AND directly
+        # invokes the renderer so _status.md redraws on a guaranteed
+        # cadence, regardless of fswatch reliability.
         assert self._heartbeat_stop is not None
         while not self._heartbeat_stop.wait(3.0):
             try:
                 self._mutate(lambda e: {**e, "last_heartbeat": _now()})
                 self._poke_iter_log("[hb]")
+                self._render_now()
             except Exception:
                 pass
 
@@ -161,6 +170,19 @@ class StateSink:
             with open(_ITER_LOG, "a") as f:
                 f.write(f"{line}\n")
         except OSError:
+            pass
+
+    def _render_now(self) -> None:
+        """Synchronously call the renderer. Capped at 5s so a slow render
+        can't pile up across heartbeats. stdout/stderr discarded — failures
+        must never crash the pipeline."""
+        try:
+            subprocess.run(
+                [_RENDER_SCRIPT],
+                timeout=5, check=False,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+        except Exception:
             pass
 
     # ── internals ─────────────────────────────────────────────────────────────
