@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>workspace-tools — an agentic dev harness</title>
+<meta name="description" content="Ideas to shipped PRs without me touching the keyboard between. A Claude Code skill harness by Tarun (CasterlyGit).">
+<style>
+  :root {
+    --bg: #0c0a08;
+    --panel: #15110d;
+    --panel-2: #1c1612;
+    --line: #2a221b;
+    --ink: #f3ead8;
+    --ink-dim: #b3a690;
+    --muted: #6e6354;
+    --accent: #f5a623;
+    --accent-soft: rgba(245,166,35,0.15);
+    --accent-glow: rgba(245,166,35,0.45);
+    --green: #6abf69;
+    --red: #d96a5b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 16px; line-height: 1.6;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(245,166,35,0.06), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 90% 30%, rgba(245,166,35,0.04), transparent 70%),
+      var(--bg);
+    min-height: 100vh;
+  }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  h1, h2, h3, .label { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-weight: 600; letter-spacing: -0.01em; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 32px; }
+  header { padding: 80px 0 40px; }
+  header .tag { font-family: ui-monospace, "SF Mono", Menlo, monospace; color: var(--accent); font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 18px; }
+  h1 { font-size: clamp(38px, 6vw, 64px); margin: 0 0 24px; line-height: 1.05; }
+  .sub { font-size: clamp(17px, 2vw, 21px); color: var(--ink-dim); max-width: 720px; line-height: 1.5; }
+  .repo-link { display: inline-flex; align-items: center; gap: 8px; margin-top: 28px; padding: 10px 16px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink-dim); font-size: 14px; }
+  .repo-link:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+
+  section { padding: 60px 0; border-top: 1px solid var(--line); }
+  .section-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 36px; }
+  .section-head h2 { font-size: 28px; margin: 0; }
+  .section-head .num { color: var(--accent); font-size: 14px; }
+
+  /* Pipeline diagram */
+  .pipeline { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 24px 0; }
+  .pipeline .step {
+    padding: 24px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    text-align: center; transition: all 0.4s cubic-bezier(.2,.7,.3,1); position: relative;
+  }
+  .pipeline .step .icon { width: 32px; height: 32px; margin: 0 auto 12px; opacity: 0.6; transition: opacity 0.4s; }
+  .pipeline .step .name { font-family: ui-monospace, monospace; font-size: 13px; color: var(--ink-dim); }
+  .pipeline .step .desc { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .pipeline .step.lit {
+    background: var(--accent-soft); border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), 0 8px 32px -8px var(--accent-glow);
+    transform: translateY(-2px);
+  }
+  .pipeline .step.lit .icon { opacity: 1; }
+  .pipeline .step.lit .name { color: var(--accent); }
+  .pipeline .arrow { position: absolute; right: -12px; top: 50%; transform: translateY(-50%); color: var(--muted); z-index: 2; pointer-events: none; }
+  .pipeline .step:last-child .arrow { display: none; }
+  @media (max-width: 720px) {
+    .pipeline { grid-template-columns: repeat(2, 1fr); }
+    .pipeline .arrow { display: none; }
+  }
+
+  /* Interactive demo */
+  .demo {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    overflow: hidden; margin-top: 16px;
+  }
+  .demo-bar {
+    display: flex; align-items: center; gap: 12px; padding: 14px 20px;
+    border-bottom: 1px solid var(--line); background: var(--panel-2);
+  }
+  .demo-bar .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+  .demo-bar .dot.r { background: #d96a5b; }
+  .demo-bar .dot.y { background: #d4b35b; }
+  .demo-bar .dot.g { background: #6abf69; }
+  .demo-bar .title { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); margin-left: 8px; }
+  .demo-controls { padding: 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+  .demo-controls .progress-text { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
+  .btn {
+    padding: 10px 18px; background: var(--accent); color: #1a1208; border: none; border-radius: 6px;
+    font-family: ui-monospace, monospace; font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: all 0.2s; letter-spacing: 0.02em;
+  }
+  .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px -6px var(--accent-glow); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.ghost { background: transparent; color: var(--ink-dim); border: 1px solid var(--line); }
+  .btn.ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); box-shadow: none; }
+
+  .stage {
+    padding: 28px 20px; min-height: 320px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;
+  }
+  @media (max-width: 720px) { .stage { grid-template-columns: 1fr; } }
+
+  .stage-card {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 16px; min-height: 220px; transition: all 0.3s;
+  }
+  .stage-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .stage-card .head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+  .stage-card .head .title { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .stage-card .head .badge { font-family: ui-monospace, monospace; font-size: 10px; padding: 2px 8px; border-radius: 4px; background: var(--line); color: var(--ink-dim); }
+  .stage-card .head .badge.live { background: var(--accent); color: #1a1208; animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+  .obs-line { font-family: ui-monospace, monospace; font-size: 13px; line-height: 1.7; color: var(--ink); white-space: pre-wrap; word-break: break-word; min-height: 130px; }
+  .obs-line .cursor { display: inline-block; width: 7px; height: 14px; background: var(--accent); animation: blink 1s infinite; vertical-align: middle; margin-left: 2px; }
+  @keyframes blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
+
+  .term {
+    font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.7; color: var(--ink-dim);
+    max-height: 220px; overflow-y: auto; white-space: pre-wrap;
+  }
+  .term .ok { color: var(--green); }
+  .term .acc { color: var(--accent); }
+  .term .dim { color: var(--muted); }
+
+  .issue {
+    border: 1px solid var(--line); border-radius: 6px; padding: 12px; background: rgba(255,255,255,0.02);
+    margin-top: 10px; opacity: 0; transform: translateY(8px); transition: all 0.4s;
+  }
+  .issue.show { opacity: 1; transform: translateY(0); }
+  .issue .num { color: var(--accent); font-family: ui-monospace, monospace; font-size: 11px; }
+  .issue .ttl { font-size: 14px; color: var(--ink); margin: 4px 0; }
+  .issue .labels { display: flex; gap: 6px; flex-wrap: wrap; }
+  .issue .lbl { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); font-family: ui-monospace, monospace; }
+
+  .diff { font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.6; padding: 12px; background: #0a0807; border: 1px solid var(--line); border-radius: 4px; margin-top: 10px; overflow-x: auto; }
+  .diff .add { color: var(--green); }
+  .diff .rm { color: var(--red); }
+  .diff .meta { color: var(--muted); }
+
+  .checklist { list-style: none; padding: 0; margin: 12px 0 0; }
+  .checklist li { font-family: ui-monospace, monospace; font-size: 12px; padding: 4px 0; color: var(--muted); display: flex; align-items: center; gap: 10px; transition: color 0.3s; }
+  .checklist li.done { color: var(--green); }
+  .checklist li .check { width: 14px; height: 14px; border: 1px solid var(--muted); border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.3s; }
+  .checklist li.done .check { background: var(--green); border-color: var(--green); }
+  .checklist li.done .check::after { content: "✓"; color: #0c0a08; font-size: 10px; font-weight: bold; }
+
+  /* Skills gallery */
+  .skills-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .skill-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px;
+    cursor: pointer; transition: all 0.25s; position: relative; overflow: hidden;
+  }
+  .skill-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 12px 32px -10px var(--accent-glow); }
+  .skill-card.open { border-color: var(--accent); background: var(--panel-2); }
+  .skill-card .name { font-family: ui-monospace, monospace; font-size: 14px; color: var(--accent); margin-bottom: 6px; }
+  .skill-card .one-line { font-size: 13px; color: var(--ink-dim); }
+  .skill-card .invoke { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); }
+  .skill-card .invoke .acc { color: var(--accent); }
+  .skill-card.open .invoke { display: block; }
+
+  /* Philosophy */
+  .philo { padding: 60px 0 100px; }
+  .philo .quote { font-size: clamp(22px, 3vw, 30px); line-height: 1.4; color: var(--ink); max-width: 800px; letter-spacing: -0.01em; }
+  .philo .quote em { color: var(--accent); font-style: normal; }
+  .philo .lines { margin-top: 36px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; max-width: 920px; }
+  .philo .line h4 { margin: 0 0 8px; font-size: 13px; color: var(--accent); font-family: ui-monospace, monospace; }
+  .philo .line p { margin: 0; font-size: 14px; color: var(--ink-dim); }
+
+  footer { padding: 40px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+  footer a { color: var(--ink-dim); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="tag">workspace-tools</div>
+    <h1>An agentic dev harness.</h1>
+    <p class="sub">Ideas to shipped pull requests without me touching the keyboard between. A directory of markdown skills, a directory of shell scripts, and Claude Code as the worker.</p>
+    <a class="repo-link mono" href="https://github.com/CasterlyGit/workspace-tools" target="_blank" rel="noopener">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      github.com/CasterlyGit/workspace-tools
+    </a>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num mono">01</div>
+      <h2>The pipeline</h2>
+    </div>
+    <p class="sub" style="font-size: 15px;">Hover any stage. Click <span class="mono" style="color:var(--accent)">play</span> to watch a ticket move from one end to the other.</p>
+    <div class="pipeline" id="pipeline">
+      <div class="step" data-i="0">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="color:var(--accent)"><path d="M4 4h12l4 4v12H4z"/><path d="M16 4v4h4"/><path d="M8 12h8M8 16h6"/></svg>
+        <div class="name">obsidian ticket</div>
+        <div class="desc">inbox/&lt;slug&gt;.md</div>
+        <svg class="arrow" width="20" height="14" viewBox="0 0 20 14" fill="none"><path d="M1 7h17M13 2l5 5-5 5" stroke="currentColor" stroke-width="1.4"/></svg>
+      </div>
+      <div class="step" data-i="1">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="color:var(--accent)"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9"/><path d="M12 3v3M12 18v3M21 12h-3M6 12H3"/></svg>
+        <div class="name">github issue</div>
+        <div class="desc">/file lands it on the board</div>
+        <svg class="arrow" width="20" height="14" viewBox="0 0 20 14" fill="none"><path d="M1 7h17M13 2l5 5-5 5" stroke="currentColor" stroke-width="1.4"/></svg>
+      </div>
+      <div class="step" data-i="2">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="color:var(--accent)"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/><path d="M6 8v8M8 6c8 0 8 6 8 6"/></svg>
+        <div class="name">branch &amp; code</div>
+        <div class="desc">/iterate-fast writes the diff</div>
+        <svg class="arrow" width="20" height="14" viewBox="0 0 20 14" fill="none"><path d="M1 7h17M13 2l5 5-5 5" stroke="currentColor" stroke-width="1.4"/></svg>
+      </div>
+      <div class="step" data-i="3">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="color:var(--accent)"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M6 8v10M18 8v8"/><path d="M8 6h7"/></svg>
+        <div class="name">PR opened</div>
+        <div class="desc">review, comment, merge</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num mono">02</div>
+      <h2>Watch a ticket become a PR</h2>
+    </div>
+    <p class="sub" style="font-size: 15px;">A fake-but-accurate replay of what happens between writing a sentence and merging the diff. Step through it.</p>
+
+    <div class="demo">
+      <div class="demo-bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="title">~/Documents/ObsidianVault/Specs — watcher running</span>
+      </div>
+      <div class="demo-controls">
+        <span class="progress-text" id="progress-text">step 0 / 6 · idle</span>
+        <div>
+          <button class="btn ghost" id="reset-btn">reset</button>
+          <button class="btn" id="play-btn">play  ▸</button>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="stage-card" id="card-left">
+          <div class="head">
+            <span class="title" id="left-title">obsidian inbox</span>
+            <span class="badge" id="left-badge">idle</span>
+          </div>
+          <div id="left-body">
+            <div class="obs-line"><span class="dim">echo "" &gt; ~/Documents/Dev/curby/inbox/add-export.md</span></div>
+            <div class="obs-line" id="obs-text" style="margin-top:8px;"><span class="dim">// waiting for ticket...</span></div>
+          </div>
+        </div>
+
+        <div class="stage-card" id="card-right">
+          <div class="head">
+            <span class="title" id="right-title">terminal</span>
+            <span class="badge" id="right-badge">—</span>
+          </div>
+          <div id="right-body">
+            <div class="term" id="term"><span class="dim">// nothing running</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num mono">03</div>
+      <h2>Skills</h2>
+    </div>
+    <p class="sub" style="font-size: 15px;">Each skill is one markdown file. Claude Code reads them as slash commands. Click a card to see how it is invoked.</p>
+    <div class="skills-grid" id="skills-grid"></div>
+  </div>
+</section>
+
+<section class="philo">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="num mono">04</div>
+      <h2>Philosophy</h2>
+    </div>
+    <p class="quote">Solo dev, AI augmented. The harness is for one person who wants the throughput of a team — <em>no daemons, no web app, no permissions model.</em> Markdown files are the API. Skills run visibly in the terminal. Every state can be rebuilt from disk on next invocation.</p>
+    <div class="lines">
+      <div class="line"><h4>files are the api</h4><p>Every interaction crosses a markdown or JSON file boundary. Kill every process and the system rebuilds itself.</p></div>
+      <div class="line"><h4>visible work</h4><p>Skills stream in the user's terminal. Read along, interrupt, course-correct. No opaque background pipeline.</p></div>
+      <div class="line"><h4>fast default</h4><p>Single-call skills by default. Multi-stage pipelines are opt-in, never silent upgrades.</p></div>
+      <div class="line"><h4>stateless workers</h4><p>Each skill invocation re-derives context from disk. Amend cycles are cheap and resumable.</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span class="mono">workspace-tools</span> · built by <a href="https://github.com/CasterlyGit" target="_blank" rel="noopener">CasterlyGit</a> · <a href="https://github.com/CasterlyGit/workspace-tools" target="_blank" rel="noopener">source</a>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // === Pipeline auto-loop ===
+  const pipeSteps = document.querySelectorAll('.pipeline .step');
+  let pipeIdx = 0;
+  function loopPipe() {
+    pipeSteps.forEach(s => s.classList.remove('lit'));
+    pipeSteps[pipeIdx].classList.add('lit');
+    pipeIdx = (pipeIdx + 1) % pipeSteps.length;
+  }
+  loopPipe();
+  let pipeTimer = setInterval(loopPipe, 1200);
+  pipeSteps.forEach((s, i) => {
+    s.addEventListener('mouseenter', () => {
+      clearInterval(pipeTimer);
+      pipeSteps.forEach(x => x.classList.remove('lit'));
+      s.classList.add('lit');
+    });
+    s.addEventListener('mouseleave', () => {
+      pipeIdx = i;
+      clearInterval(pipeTimer);
+      pipeTimer = setInterval(loopPipe, 1200);
+    });
+  });
+
+  // === Skills gallery ===
+  const skills = [
+    {name: '/iterate-fast', line: 'inbox ticket → issue → branch → code → test → PR. 3-8 min.', cmd: 'claude /iterate-fast ~/Documents/Dev/curby/inbox/add-export.md'},
+    {name: '/pr-amend', line: 'Read latest PR comment, implement delta, push, reply. 2-5 min.', cmd: 'claude /pr-amend https://github.com/CasterlyGit/curby/pull/42'},
+    {name: '/file', line: 'Quick GitHub issue filer. Lands on the right project board.', cmd: 'claude /file "add CSV export to settings page"'},
+    {name: '/iterate', line: 'Brownfield: issue → SDD pipeline → PR. Single fast call default.', cmd: 'claude /iterate https://github.com/CasterlyGit/curby/issues/17'},
+    {name: '/epic', line: 'Split a big ticket into N steps on ONE branch, one PR.', cmd: 'claude /epic ~/Documents/Dev/curby/inbox/onboarding-rewrite.md'},
+    {name: '/automate', line: 'Greenfield: idea → new repo + project board + initial commit.', cmd: 'claude /automate "tiny CLI that summarizes terminal output"'},
+    {name: '/onboard', line: 'Pull an existing repo into the workflow: project, labels, columns.', cmd: 'claude /onboard CasterlyGit/some-old-repo'},
+    {name: '/hub', line: 'Bootstrap the master Workspace project — all-up Jira-like view.', cmd: 'claude /hub'},
+    {name: '/board-setup', line: 'Apply standard Status / Priority / Target fields to a Project v2.', cmd: 'claude /board-setup CasterlyGit/curby'},
+    {name: '/label-sync', line: 'Apply standard label kit to a repo. Idempotent.', cmd: 'claude /label-sync CasterlyGit/curby'},
+    {name: '/ticket', line: 'Drop a ticket into the Obsidian Specs watcher.', cmd: 'claude /ticket curby "add CSV export to settings"'},
+  ];
+  const grid = document.getElementById('skills-grid');
+  skills.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'skill-card';
+    el.innerHTML = `
+      <div class="name">${s.name}</div>
+      <div class="one-line">${s.line}</div>
+      <div class="invoke"><span class="acc">$</span> ${s.cmd}</div>
+    `;
+    el.addEventListener('click', () => el.classList.toggle('open'));
+    grid.appendChild(el);
+  });
+
+  // === Interactive demo ===
+  const obsText = document.getElementById('obs-text');
+  const term = document.getElementById('term');
+  const leftBadge = document.getElementById('left-badge');
+  const rightBadge = document.getElementById('right-badge');
+  const leftTitle = document.getElementById('left-title');
+  const rightTitle = document.getElementById('right-title');
+  const cardLeft = document.getElementById('card-left');
+  const cardRight = document.getElementById('card-right');
+  const playBtn = document.getElementById('play-btn');
+  const resetBtn = document.getElementById('reset-btn');
+  const progressText = document.getElementById('progress-text');
+
+  const TICKET = "add: export saved tabs to JSON\n\nadd a button in settings → export\nwrites all saved tabs to a downloadable .json\nfile named curby-tabs-<date>.json";
+  let timeouts = [];
+  let running = false;
+  let stepN = 0;
+
+  function clearAll() {
+    timeouts.forEach(t => clearTimeout(t));
+    timeouts = [];
+  }
+  function sched(fn, ms) {
+    const t = setTimeout(fn, ms);
+    timeouts.push(t);
+    return t;
+  }
+  function setBadge(el, text, live) {
+    el.textContent = text;
+    el.classList.toggle('live', !!live);
+  }
+  function setProgress(n, label) {
+    stepN = n;
+    progressText.textContent = `step ${n} / 6 · ${label}`;
+  }
+
+  function reset() {
+    clearAll();
+    running = false;
+    obsText.innerHTML = '<span class="dim">// waiting for ticket...</span>';
+    term.innerHTML = '<span class="dim">// nothing running</span>';
+    leftTitle.textContent = 'obsidian inbox';
+    rightTitle.textContent = 'terminal';
+    setBadge(leftBadge, 'idle', false);
+    setBadge(rightBadge, '—', false);
+    cardLeft.classList.remove('active');
+    cardRight.classList.remove('active');
+    setProgress(0, 'idle');
+    playBtn.disabled = false;
+    playBtn.textContent = 'play  ▸';
+  }
+
+  function termAppend(html) {
+    if (term.querySelector('.dim') && term.children.length === 1 && term.firstChild.textContent.startsWith('// nothing')) {
+      term.innerHTML = '';
+    }
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    term.appendChild(div);
+    term.scrollTop = term.scrollHeight;
+  }
+
+  function typeInto(el, text, perChar, done) {
+    el.innerHTML = '';
+    let i = 0;
+    function tick() {
+      if (i >= text.length) {
+        const cur = document.createElement('span');
+        cur.className = 'cursor';
+        el.appendChild(cur);
+        if (done) done();
+        return;
+      }
+      const ch = text[i++];
+      if (ch === '\n') {
+        el.appendChild(document.createElement('br'));
+      } else {
+        el.appendChild(document.createTextNode(ch));
+      }
+      sched(tick, perChar + Math.random() * 14);
+    }
+    tick();
+  }
+
+  function play() {
+    if (running) return;
+    reset();
+    running = true;
+    playBtn.disabled = true;
+    playBtn.textContent = 'running…';
+
+    // STEP 1 — user types ticket
+    setProgress(1, 'drop ticket in Obsidian');
+    cardLeft.classList.add('active');
+    setBadge(leftBadge, 'typing', true);
+    typeInto(obsText, TICKET, 22, () => {
+      sched(step2, 600);
+    });
+
+    function step2() {
+      // STEP 2 — watcher fires
+      setProgress(2, 'fswatch fires, state.json updated');
+      setBadge(leftBadge, 'saved', false);
+      cardRight.classList.add('active');
+      rightTitle.textContent = 'inbox-watcher.sh';
+      setBadge(rightBadge, 'pulse', true);
+      termAppend('<span class="dim">[watch]</span> inbox/add-export.md <span class="acc">+1</span>');
+      sched(() => termAppend('<span class="dim">[render]</span> _status.md ← new ticket: <span class="acc">add-export</span> <span class="dim">(ready)</span>'), 500);
+      sched(() => termAppend('<span class="dim">[state]</span> writing inbox/.state.json'), 1000);
+      sched(step3, 1700);
+    }
+
+    function step3() {
+      // STEP 3 — /file runs, creates issue
+      setProgress(3, '/file creates GitHub issue');
+      rightTitle.textContent = 'claude /file curby';
+      setBadge(rightBadge, 'running', true);
+      termAppend('');
+      termAppend('<span class="acc">$</span> claude /file curby/inbox/add-export.md');
+      sched(() => termAppend('<span class="dim">→</span> drafting title and body'), 500);
+      sched(() => termAppend('<span class="dim">→</span> gh issue create --label feature --project Workspace'), 1100);
+      sched(() => termAppend('<span class="ok">✓</span> issue #41 created'), 1600);
+      sched(() => {
+        // also render issue in left card
+        leftTitle.textContent = 'github.com/curby';
+        setBadge(leftBadge, 'open', false);
+        obsText.innerHTML = '';
+        const issue = document.createElement('div');
+        issue.className = 'issue';
+        issue.innerHTML = `
+          <div class="num">CasterlyGit/curby #41</div>
+          <div class="ttl">add: export saved tabs to JSON</div>
+          <div class="labels">
+            <span class="lbl">feature</span>
+            <span class="lbl">ready</span>
+            <span class="lbl">size:S</span>
+          </div>
+        `;
+        obsText.appendChild(issue);
+        sched(() => issue.classList.add('show'), 50);
+      }, 1800);
+      sched(step4, 2700);
+    }
+
+    function step4() {
+      // STEP 4 — /iterate-fast: branch + code
+      setProgress(4, '/iterate-fast: branch + code');
+      rightTitle.textContent = 'claude /iterate-fast #41';
+      setBadge(rightBadge, 'coding', true);
+      termAppend('');
+      termAppend('<span class="acc">$</span> claude /iterate-fast curby#41');
+      sched(() => termAppend('<span class="dim">→</span> git checkout -b feat/export-saved-tabs'), 500);
+      sched(() => termAppend('<span class="dim">→</span> editing src/settings/ExportPanel.tsx'), 1000);
+      sched(() => termAppend('<span class="dim">→</span> editing src/lib/export.ts'), 1500);
+      sched(() => termAppend('<span class="dim">→</span> npm test'), 2100);
+      sched(() => termAppend('<span class="ok">✓</span> 27 passed, 0 failed'), 2700);
+      sched(step5, 3200);
+    }
+
+    function step5() {
+      // STEP 5 — PR opened
+      setProgress(5, 'PR opened, diff ready for review');
+      setBadge(rightBadge, 'pushing', true);
+      termAppend('<span class="dim">→</span> git push -u origin feat/export-saved-tabs');
+      sched(() => termAppend('<span class="dim">→</span> gh pr create --title "add: export saved tabs to JSON"'), 600);
+      sched(() => termAppend('<span class="ok">✓</span> PR #42 opened: <span class="acc">https://github.com/CasterlyGit/curby/pull/42</span>'), 1200);
+      sched(() => {
+        leftTitle.textContent = 'PR #42 — diff preview';
+        setBadge(leftBadge, '+38 -2', false);
+        obsText.innerHTML = '';
+        const diff = document.createElement('div');
+        diff.className = 'diff';
+        diff.innerHTML = `<span class="meta">diff --git a/src/lib/export.ts b/src/lib/export.ts</span>
+<span class="meta">@@ +1,18 @@</span>
+<span class="add">+ export function exportTabs(tabs: Tab[]) {</span>
+<span class="add">+   const blob = new Blob(</span>
+<span class="add">+     [JSON.stringify(tabs, null, 2)],</span>
+<span class="add">+     { type: 'application/json' }</span>
+<span class="add">+   );</span>
+<span class="add">+   const url = URL.createObjectURL(blob);</span>
+<span class="add">+   const a = document.createElement('a');</span>
+<span class="add">+   a.href = url;</span>
+<span class="add">+   a.download = \`curby-tabs-\${today()}.json\`;</span>
+<span class="add">+   a.click();</span>
+<span class="add">+   URL.revokeObjectURL(url);</span>
+<span class="add">+ }</span>`;
+        obsText.appendChild(diff);
+      }, 1400);
+      sched(step6, 2400);
+    }
+
+    function step6() {
+      // STEP 6 — merged
+      setProgress(6, 'merged, row flips to done');
+      setBadge(rightBadge, 'merged', false);
+      termAppend('');
+      termAppend('<span class="dim">[obsidian]</span> click <span class="acc">merge</span>');
+      sched(() => termAppend('<span class="dim">→</span> gh pr merge 42 --squash --delete-branch'), 500);
+      sched(() => termAppend('<span class="ok">✓</span> merged · branch deleted · state.json cleared'), 1100);
+      sched(() => termAppend('<span class="dim">[render]</span> _status.md ← add-export <span class="ok">done</span>'), 1500);
+      sched(() => {
+        setBadge(leftBadge, 'done', false);
+        cardLeft.classList.remove('active');
+        cardRight.classList.remove('active');
+        setProgress(6, 'done — replay anytime');
+        playBtn.disabled = false;
+        playBtn.textContent = 'replay  ↻';
+        running = false;
+      }, 2000);
+    }
+  }
+
+  playBtn.addEventListener('click', play);
+  resetBtn.addEventListener('click', reset);
+})();
+</script>
+</body>
+</html>
