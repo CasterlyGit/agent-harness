@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>workspace-tools — compress the gap between idea and PR</title>
-<meta name="description" content="A voice note in Obsidian becomes a merged PR in minutes. Watch the same task run on a traditional team and on an agentic harness, side by side.">
+<title>agent-harness — live ticket routing</title>
+<meta name="description" content="A set of skills and watchers that route ticket-shaped ideas into shipped PRs. Drop a sentence — watch which skill the harness picks, which repo it lands in, and what command it would run.">
 <style>
   :root {
     --bg: #0a0b0f;
@@ -20,9 +20,10 @@
     --accent-soft: rgba(255,165,0,0.12);
     --accent-glow: rgba(255,165,0,0.45);
     --green: #6fcf7f;
-    --red: #d96a5b;
-    --slow: #4a82c8;
-    --slow-soft: rgba(74,130,200,0.10);
+    --green-soft: rgba(111,207,127,0.10);
+    --blue: #4a82c8;
+    --blue-soft: rgba(74,130,200,0.10);
+    --gray-chip: #2a2d3a;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); }
@@ -45,15 +46,16 @@
   a:hover { text-decoration: underline; }
 
   .wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+
   header { padding: 72px 0 28px; }
   header .tag {
     font-family: ui-monospace, monospace; color: var(--accent);
     font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; margin-bottom: 18px;
   }
-  h1 { font-size: clamp(34px, 5.6vw, 60px); margin: 0 0 20px; line-height: 1.04; letter-spacing: -0.02em; }
-  h1 .strike { color: var(--ink-dim); text-decoration: line-through; text-decoration-color: var(--accent); text-decoration-thickness: 3px; }
+  h1 { font-size: clamp(32px, 5.2vw, 56px); margin: 0 0 22px; line-height: 1.05; letter-spacing: -0.02em; }
   h1 .pop { color: var(--accent); }
-  .sub { font-size: clamp(16px, 1.7vw, 19px); color: var(--ink-dim); max-width: 760px; line-height: 1.55; }
+  .sub { font-size: clamp(16px, 1.6vw, 19px); color: var(--ink-dim); max-width: 760px; line-height: 1.55; }
+  .sub b { color: var(--ink); font-weight: 600; }
   .repo-link {
     display: inline-flex; align-items: center; gap: 8px; margin-top: 22px;
     padding: 9px 14px; border: 1px solid var(--line); border-radius: 6px;
@@ -63,258 +65,261 @@
   .repo-link:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
 
   section { padding: 52px 0; border-top: 1px solid var(--line); }
-  .section-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 28px; }
+  .section-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 22px; flex-wrap: wrap; }
   .section-head h2 { font-size: 26px; margin: 0; }
   .section-head .num { color: var(--accent); font-size: 13px; font-family: ui-monospace, monospace; }
   .section-head .h2-sub { color: var(--muted); font-size: 13px; font-family: ui-monospace, monospace; margin-left: auto; }
 
-  /* ============ HERO RACE ============ */
-  .race-frame {
+  /* ============ HERO ROUTER ============ */
+  .router {
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: 14px;
     overflow: hidden;
-    margin-top: 18px;
+    margin-top: 16px;
     box-shadow: 0 30px 80px -40px rgba(0,0,0,0.6);
   }
-  .race-bar {
+  .router-bar {
     display: flex; align-items: center; gap: 14px;
     padding: 14px 22px; border-bottom: 1px solid var(--line);
     background: var(--panel-2);
     flex-wrap: wrap;
   }
-  .race-bar .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line-2); }
-  .race-bar .dot.r { background: #d96a5b; }
-  .race-bar .dot.y { background: #d4b35b; }
-  .race-bar .dot.g { background: #6abf69; }
-  .race-bar .title {
+  .router-bar .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line-2); }
+  .router-bar .dot.r { background: #d96a5b; }
+  .router-bar .dot.y { background: #d4b35b; }
+  .router-bar .dot.g { background: #6abf69; }
+  .router-bar .title {
     font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted);
     margin-left: 6px;
   }
-  .race-bar .spacer { flex: 1; }
-  .race-bar .speed {
+  .router-bar .spacer { flex: 1; }
+  .router-bar .hint {
     font-family: ui-monospace, monospace; font-size: 11px; color: var(--ink-dim);
     border: 1px solid var(--line-2); padding: 4px 10px; border-radius: 14px;
     background: rgba(255,255,255,0.02);
   }
-  .race-bar .speed b { color: var(--accent); }
+  .router-bar .hint b { color: var(--accent); }
 
-  .race-controls {
-    display: flex; justify-content: space-between; align-items: center; gap: 14px;
-    padding: 16px 22px; border-bottom: 1px solid var(--line);
-    flex-wrap: wrap;
-  }
-  .race-controls .task {
-    font-family: ui-monospace, monospace; font-size: 13px; color: var(--ink-dim);
-  }
-  .race-controls .task .you { color: var(--accent); }
-  .race-controls .actions { display: flex; gap: 10px; align-items: center; }
-  .btn {
-    padding: 9px 16px; background: var(--accent); color: #1a1208; border: none; border-radius: 6px;
-    font-family: ui-monospace, monospace; font-size: 12px; font-weight: 700; cursor: pointer;
-    transition: all 0.2s; letter-spacing: 0.02em;
-  }
-  .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px -6px var(--accent-glow); background: var(--accent-2); }
-  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-  .btn.ghost { background: transparent; color: var(--ink-dim); border: 1px solid var(--line-2); }
-  .btn.ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); box-shadow: none; background: transparent; }
-
-  .race-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
-    border-bottom: 1px solid var(--line);
-  }
-  @media (max-width: 820px) {
-    .race-grid { grid-template-columns: 1fr; }
-    .race-col.left { border-right: 0 !important; border-bottom: 1px solid var(--line); }
-  }
-  .race-col {
-    padding: 22px;
-    min-height: 480px;
-    position: relative;
-  }
-  .race-col.left { border-right: 1px solid var(--line); background: linear-gradient(180deg, transparent, var(--slow-soft) 200%); }
-  .race-col.right { background: linear-gradient(180deg, transparent, var(--accent-soft) 200%); }
-
-  .col-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 8px; }
-  .col-head .label { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; }
-  .col-head.left .label { color: var(--slow); }
-  .col-head.right .label { color: var(--accent); }
-  .col-head .clock {
-    font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink-dim);
-  }
-  .col-head .clock b { color: var(--ink); }
-  .col-head.right .clock b { color: var(--accent); }
-  .col-head .name { font-size: 18px; margin: 0; color: var(--ink); }
-  .col-name-row { margin-bottom: 18px; }
-
-  .events { display: flex; flex-direction: column; gap: 8px; }
-  .event {
-    display: grid; grid-template-columns: 88px 1fr auto; gap: 10px; align-items: start;
-    padding: 10px 12px; border: 1px solid var(--line);
-    border-radius: 6px; background: rgba(255,255,255,0.015);
-    opacity: 0; transform: translateY(8px);
-    transition: opacity 0.4s ease, transform 0.4s ease, border-color 0.4s ease, background 0.4s ease;
-  }
-  .event.show { opacity: 1; transform: translateY(0); }
-  .event.active { border-color: currentColor; background: rgba(255,255,255,0.03); }
-  .race-col.left .event.active { color: var(--slow); }
-  .race-col.right .event.active { color: var(--accent); }
-  .event .when { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); padding-top: 2px; }
-  .event.active .when { color: inherit; }
-  .event .what { font-size: 13px; color: var(--ink); line-height: 1.45; }
-  .event .what .sub { color: var(--ink-dim); font-size: 12px; display: block; margin-top: 2px; }
-  .event.active .what { color: var(--ink); }
-  .event .dur {
-    font-family: ui-monospace, monospace; font-size: 10px; color: var(--muted);
-    padding: 2px 7px; border-radius: 10px; border: 1px solid var(--line-2); white-space: nowrap;
-    align-self: center;
-  }
-  .race-col.left .event.active .dur { color: var(--slow); border-color: var(--slow); }
-  .race-col.right .event.active .dur { color: var(--accent); border-color: var(--accent); }
-
-  .col-status {
-    margin-top: 18px; padding: 10px 12px; border-radius: 6px;
-    font-family: ui-monospace, monospace; font-size: 12px;
-    background: rgba(255,255,255,0.02); border: 1px solid var(--line);
-    color: var(--muted); min-height: 38px;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .col-status .pip { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
-  .race-col.left .col-status.live { color: var(--slow); border-color: var(--slow); background: var(--slow-soft); }
-  .race-col.left .col-status.live .pip { background: var(--slow); animation: pulse 1.2s infinite; }
-  .race-col.right .col-status.live { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
-  .race-col.right .col-status.live .pip { background: var(--accent); animation: pulse 1.2s infinite; }
-  .col-status.done { color: var(--green); border-color: var(--green); background: rgba(111,207,127,0.08); }
-  .col-status.done .pip { background: var(--green); }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-
-  /* big counter footer of race frame */
-  .race-foot {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 0;
-    background: var(--panel-2);
-  }
-  @media (max-width: 820px) { .race-foot { grid-template-columns: 1fr; } }
-  .race-foot .col {
-    padding: 16px 22px;
-    display: flex; align-items: baseline; gap: 14px;
-    flex-wrap: wrap;
-  }
-  .race-foot .col.left { border-right: 1px solid var(--line); }
-  @media (max-width: 820px) { .race-foot .col.left { border-right: 0; border-bottom: 1px solid var(--line); } }
-  .race-foot .lbl { font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
-  .race-foot .num {
-    font-family: ui-monospace, monospace; font-size: 26px; font-weight: 700;
-    letter-spacing: -0.02em;
-  }
-  .race-foot .col.left .num { color: var(--slow); }
-  .race-foot .col.right .num { color: var(--accent); }
-  .race-foot .tiny { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); }
-
-  /* gap callout under race */
-  .gap-callout {
-    margin-top: 18px;
-    padding: 18px 22px;
-    border: 1px dashed var(--line-2);
-    border-radius: 10px;
-    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-    background: rgba(255,255,255,0.015);
-  }
-  .gap-callout .big {
-    font-family: ui-monospace, monospace; font-size: 28px; color: var(--accent); font-weight: 700;
-    letter-spacing: -0.02em;
-  }
-  .gap-callout .txt { color: var(--ink-dim); font-size: 14px; flex: 1; min-width: 240px; }
-  .gap-callout .txt b { color: var(--ink); }
-
-  /* ============ STREAM (CI-style reveal) ============ */
-  .stream-frame {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-    overflow: hidden; margin-top: 16px;
-  }
-  .stream-prompt {
-    padding: 18px 22px; border-bottom: 1px solid var(--line);
-    display: flex; align-items: center; gap: 14px; background: var(--panel-2);
-    flex-wrap: wrap;
-  }
-  .stream-prompt .label {
-    font-family: ui-monospace, monospace; font-size: 10px;
+  .input-area { padding: 20px 22px 6px; }
+  .input-area .input-label {
+    font-family: ui-monospace, monospace; font-size: 11px;
     letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 10px;
   }
-  .stream-prompt .quote {
-    font-family: ui-monospace, monospace; font-size: 15px; color: var(--ink); flex: 1;
+  .input-area textarea {
+    width: 100%; min-height: 88px;
+    background: #07080c; color: var(--ink);
+    border: 1px solid var(--line-2); border-radius: 8px;
+    padding: 14px 16px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 15px; line-height: 1.55;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.18s, box-shadow 0.18s;
   }
-  .stream-prompt .quote .you { color: var(--accent); }
-  .stream-prompt .mic {
-    display: inline-flex; align-items: center; gap: 6px;
+  .input-area textarea::placeholder { color: var(--muted); }
+  .input-area textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .input-area .input-hint {
+    margin-top: 8px;
     font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted);
   }
-  .stream-prompt .mic svg { width: 14px; height: 14px; }
-  .stream-prompt .waves { display: inline-flex; gap: 2px; height: 16px; align-items: center; }
-  .stream-prompt .waves span {
-    width: 2px; background: var(--accent); border-radius: 1px;
-    animation: wave 1.1s ease-in-out infinite;
+  .input-area .examples {
+    margin-top: 10px;
+    display: flex; flex-wrap: wrap; gap: 6px;
   }
-  .stream-prompt .waves span:nth-child(1) { height: 6px;  animation-delay: 0s; }
-  .stream-prompt .waves span:nth-child(2) { height: 12px; animation-delay: 0.1s; }
-  .stream-prompt .waves span:nth-child(3) { height: 16px; animation-delay: 0.2s; }
-  .stream-prompt .waves span:nth-child(4) { height: 9px;  animation-delay: 0.3s; }
-  .stream-prompt .waves span:nth-child(5) { height: 13px; animation-delay: 0.15s; }
-  @keyframes wave { 0%,100% { transform: scaleY(0.4); } 50% { transform: scaleY(1.0); } }
+  .input-area .examples .ex {
+    font-family: ui-monospace, monospace; font-size: 11px;
+    background: rgba(255,255,255,0.025); color: var(--ink-dim);
+    border: 1px solid var(--line); border-radius: 14px;
+    padding: 4px 10px;
+    cursor: pointer; transition: all 0.18s;
+  }
+  .input-area .examples .ex:hover {
+    border-color: var(--accent); color: var(--accent);
+  }
 
-  .stream-body {
-    padding: 18px 22px;
-    font-family: ui-monospace, monospace;
-    font-size: 13px;
-    line-height: 1.7;
-    color: var(--ink-dim);
+  /* routing chip grid */
+  .chips {
+    padding: 16px 22px 4px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+  @media (max-width: 720px) { .chips { grid-template-columns: repeat(2, 1fr); } }
+  .chip {
+    background: rgba(255,255,255,0.018);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    transition: border-color 0.22s, background 0.22s, transform 0.22s;
+  }
+  .chip.changed {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    transform: translateY(-1px);
+  }
+  .chip .lbl {
+    font-family: ui-monospace, monospace; font-size: 10px;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .chip .val {
+    font-family: ui-monospace, monospace; font-size: 14px; color: var(--ink);
+    word-break: break-word;
+  }
+  .chip .val.dim { color: var(--ink-dim); }
+  .chip .val .accent { color: var(--accent); }
+  .chip .val .ambiguous { color: var(--ink-dim); font-style: italic; }
+
+  /* preview row */
+  .preview-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border-top: 1px solid var(--line);
+    margin-top: 18px;
+  }
+  @media (max-width: 900px) {
+    .preview-row { grid-template-columns: 1fr; }
+    .preview-row .preview-col.left { border-right: 0; border-bottom: 1px solid var(--line); }
+  }
+  .preview-col { padding: 22px; }
+  .preview-col.left { border-right: 1px solid var(--line); }
+  .preview-col .col-lbl {
+    font-family: ui-monospace, monospace; font-size: 10px;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  /* github issue card preview */
+  .gh-issue {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .gh-issue .gh-head {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid #21262d;
+  }
+  .gh-issue .gh-status {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 12px;
+    background: #1f6f3f; color: #c8e6cf;
+    font-family: -apple-system, sans-serif; font-size: 11px; font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .gh-issue .gh-status .dotpip { width: 7px; height: 7px; border-radius: 50%; background: #6fcf7f; }
+  .gh-issue .gh-title {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 16px; font-weight: 600; color: #e6edf3; line-height: 1.35;
+    margin: 0 0 6px;
+  }
+  .gh-issue .gh-meta {
+    font-family: -apple-system, sans-serif; font-size: 12px; color: #8b949e;
+  }
+  .gh-issue .gh-meta b { color: #e6edf3; font-weight: 600; }
+  .gh-issue .gh-body {
+    padding: 14px 16px;
+    font-family: -apple-system, sans-serif; font-size: 13px;
+    color: #c9d1d9; line-height: 1.55;
+    white-space: pre-wrap;
+    min-height: 60px;
+  }
+  .gh-issue .gh-labels {
+    padding: 10px 16px 14px;
+    display: flex; flex-wrap: wrap; gap: 6px;
+    border-top: 1px solid #21262d;
+  }
+  .gh-label {
+    display: inline-flex; align-items: center;
+    padding: 3px 9px; border-radius: 12px;
+    font-family: -apple-system, sans-serif; font-size: 11px; font-weight: 500;
+    border: 1px solid transparent;
+  }
+  .gh-label.bug { background: #5c1f1f; color: #ffb1ab; border-color: #7a2a2a; }
+  .gh-label.feature { background: #1f3a5c; color: #abc8ff; border-color: #2a4d7a; }
+  .gh-label.polish { background: #3a2a5c; color: #c8abff; border-color: #4d2a7a; }
+  .gh-label.chore { background: #3a3a3a; color: #c0c0c0; border-color: #555; }
+  .gh-label.p0 { background: #7a1f1f; color: #ffd4d0; border-color: #a02020; }
+  .gh-label.p1 { background: #5c3a1f; color: #ffd9a8; border-color: #7a4d2a; }
+  .gh-label.p2 { background: #2a3540; color: #a8c5e0; border-color: #3a4d60; }
+  .gh-label.p3 { background: #2a3a2a; color: #a8d8a8; border-color: #3a503a; }
+  .gh-label.size { background: #2a2a40; color: #b8b8d8; border-color: #3a3a55; }
+
+  /* CLI preview */
+  .cli-block {
     background: #07080c;
-    min-height: 360px;
-    max-height: 520px;
-    overflow-y: auto;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    overflow: hidden;
   }
-  .stream-body .ln {
-    opacity: 0; transform: translateX(-6px);
-    transition: opacity 0.25s ease, transform 0.25s ease;
-    padding: 1px 0;
+  .cli-block .cli-head {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--line-2);
+    background: rgba(255,255,255,0.02);
+    font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted);
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
   }
-  .stream-body .ln.show { opacity: 1; transform: translateX(0); }
-  .stream-body .ts { color: var(--muted); user-select: none; margin-right: 10px; }
-  .stream-body .tag { color: var(--accent); }
-  .stream-body .ok { color: var(--green); }
-  .stream-body .dim { color: var(--muted); }
-  .stream-body .acc { color: var(--accent-2); }
-  .stream-body .file { color: var(--ink); }
-  .stream-body .blank { height: 6px; }
+  .cli-block .cli-head .copy-btn {
+    background: transparent; color: var(--ink-dim);
+    border: 1px solid var(--line-2); border-radius: 4px;
+    font-family: ui-monospace, monospace; font-size: 10px;
+    padding: 3px 8px; cursor: pointer;
+    transition: all 0.18s;
+  }
+  .cli-block .cli-head .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .cli-block .cli-head .copy-btn.copied { color: var(--green); border-color: var(--green); }
+  .cli-block pre {
+    margin: 0; padding: 14px 16px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px; line-height: 1.7; color: var(--ink-dim);
+    white-space: pre-wrap; word-break: break-word;
+    min-height: 60px;
+  }
+  .cli-block pre .acc { color: var(--accent); }
+  .cli-block pre .flag { color: var(--ink); }
+  .cli-block pre .str { color: #c8e6cf; }
+  .cli-block pre .dim { color: var(--muted); }
 
-  .stream-foot {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 22px; border-top: 1px solid var(--line);
-    background: var(--panel-2); flex-wrap: wrap; gap: 12px;
+  .next-step {
+    margin-top: 18px;
+    padding: 14px 16px;
+    border: 1px dashed var(--line-2);
+    border-radius: 8px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: rgba(255,255,255,0.012);
   }
-  .stream-foot .stat { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink-dim); }
-  .stream-foot .stat b { color: var(--accent); }
-  .stream-foot .actions { display: flex; gap: 10px; }
+  .next-step .arrow {
+    color: var(--accent); font-family: ui-monospace, monospace; font-size: 14px;
+  }
+  .next-step .txt {
+    font-family: ui-monospace, monospace; font-size: 12.5px; color: var(--ink-dim);
+    flex: 1; min-width: 200px;
+  }
+  .next-step .txt b { color: var(--accent); }
 
-  /* ============ SCRUB / PIPELINE STRIP ============ */
-  .strip {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 18px 0 6px;
+  /* footer of router */
+  .router-foot {
+    padding: 14px 22px;
+    background: var(--panel-2);
+    border-top: 1px solid var(--line);
+    font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted);
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   }
-  @media (max-width: 720px) { .strip { grid-template-columns: repeat(2, 1fr); } }
-  .strip .step {
-    padding: 20px 14px; background: var(--panel); border: 1px solid var(--line);
-    border-radius: 10px; text-align: center; transition: all 0.35s cubic-bezier(.2,.7,.3,1);
+  .router-foot .live-dot {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--ink-dim);
   }
-  .strip .step .icon { width: 28px; height: 28px; margin: 0 auto 10px; opacity: 0.55; transition: opacity 0.35s; color: var(--accent); }
-  .strip .step .name { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink-dim); }
-  .strip .step .desc { font-size: 11px; color: var(--muted); margin-top: 4px; }
-  .strip .step.lit {
-    background: var(--accent-soft); border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent), 0 8px 28px -10px var(--accent-glow);
-    transform: translateY(-2px);
+  .router-foot .live-dot .pip {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+    animation: pulse 1.4s infinite;
   }
-  .strip .step.lit .icon { opacity: 1; }
-  .strip .step.lit .name { color: var(--accent); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
   /* ============ SKILLS GALLERY ============ */
   .skills-note { color: var(--muted); font-size: 13px; margin-bottom: 14px; font-family: ui-monospace, monospace; }
@@ -352,7 +357,6 @@
   footer a { color: var(--ink-dim); }
   footer .row { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 
-  /* a11y: respect reduced motion */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
@@ -365,12 +369,12 @@
 
 <header>
   <div class="wrap">
-    <div class="tag">workspace-tools · an agentic dev harness</div>
-    <h1>The gap between <span class="strike">a sprint</span> <span class="pop">a sentence</span><br>and a merged PR.</h1>
-    <p class="sub">workspace-tools compresses the loop. A voice-noted idea in Obsidian becomes a tested, opened pull request in minutes. The same ticket on a typical engineering team takes <b>hours to days</b>. Press play, then come back when the right side is done.</p>
-    <a class="repo-link" href="https://github.com/CasterlyGit/workspace-tools" target="_blank" rel="noopener">
+    <div class="tag">agent-harness · live ticket routing</div>
+    <h1>Drop a sentence.<br>Watch the harness <span class="pop">route it</span>.</h1>
+    <p class="sub">A set of skills and watchers that turn ticket-shaped ideas into shipped PRs. Type below — the page infers which repo it belongs to, what kind of work it is, and which skill would pick it up. Everything runs in your browser, character by character.</p>
+    <a class="repo-link" href="https://github.com/CasterlyGit/agent-harness" target="_blank" rel="noopener">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-      github.com/CasterlyGit/workspace-tools
+      github.com/CasterlyGit/agent-harness
     </a>
   </div>
 </header>
@@ -379,87 +383,86 @@
   <div class="wrap">
     <div class="section-head">
       <div class="num">01</div>
-      <h2>The race</h2>
-      <span class="h2-sub">same task. two timelines. one playback.</span>
+      <h2>The router</h2>
+      <span class="h2-sub">type · watch · everything updates live</span>
     </div>
-    <p class="sub" style="font-size: 14px;">A small frontend ticket — <span class="mono" style="color:var(--accent)">add a CSV export to the settings page</span> — moved end-to-end. Left: a sane engineering team. Right: an agent running the workspace-tools skills. Both clocks run at the speed shown in the bar above.</p>
 
-    <div class="race-frame">
-      <div class="race-bar">
+    <div class="router">
+      <div class="router-bar">
         <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
-        <span class="title">workspace-tools / race.html</span>
+        <span class="title">agent-harness / router.live</span>
         <span class="spacer"></span>
-        <span class="speed" id="speed-tag">playback · <b id="speed-num">1x</b> of real wall clock</span>
+        <span class="hint">inferring in browser · <b>no server</b></span>
       </div>
-      <div class="race-controls">
-        <div class="task">ticket: <span class="you">"add a CSV export button to the saved-tabs settings page"</span></div>
-        <div class="actions">
-          <button class="btn ghost" id="speed-btn">speed · 1x</button>
-          <button class="btn ghost" id="reset-btn">reset</button>
-          <button class="btn" id="play-btn">play race  ▸</button>
+
+      <div class="input-area">
+        <div class="input-label">drop a ticket idea — one sentence</div>
+        <textarea id="ticket-input" placeholder="voice indicator hides under the menu bar" spellcheck="false"></textarea>
+        <div class="input-hint">try erasing it and typing your own. the routing below tracks your keystrokes.</div>
+        <div class="examples" id="examples">
+          <span class="ex" data-ex="voice indicator hides under the menu bar">voice indicator hides under the menu bar</span>
+          <span class="ex" data-ex="add youtube support to the music player">add youtube support to the music player</span>
+          <span class="ex" data-ex="emergency map breaks in chicago, urgent">emergency map breaks in chicago, urgent</span>
+          <span class="ex" data-ex="rewrite the whisper dictation pipeline end to end">rewrite the whisper dictation pipeline end to end</span>
+          <span class="ex" data-ex="polish the puck animation easing">polish the puck animation easing</span>
         </div>
       </div>
 
-      <div class="race-grid">
-        <div class="race-col left">
-          <div class="col-head left">
-            <span class="label">traditional team</span>
-            <span class="clock mono">elapsed <b id="clock-left">00:00</b></span>
+      <div class="chips">
+        <div class="chip" id="chip-repo">
+          <div class="lbl">detected repo</div>
+          <div class="val dim" id="val-repo"><span class="ambiguous">ambiguous — would ask</span></div>
+        </div>
+        <div class="chip" id="chip-type">
+          <div class="lbl">detected type</div>
+          <div class="val" id="val-type">feature</div>
+        </div>
+        <div class="chip" id="chip-priority">
+          <div class="lbl">priority</div>
+          <div class="val" id="val-priority">P2</div>
+        </div>
+        <div class="chip" id="chip-skill">
+          <div class="lbl">skill that would fire</div>
+          <div class="val" id="val-skill"><span class="accent">/file</span> + <span class="accent">/iterate-fast</span></div>
+        </div>
+      </div>
+
+      <div class="preview-row">
+        <div class="preview-col left">
+          <div class="col-lbl">github issue preview</div>
+          <div class="gh-issue">
+            <div class="gh-head">
+              <span class="gh-status"><span class="dotpip"></span>Open</span>
+              <h3 class="gh-title" id="gh-title">drop a sentence above to begin</h3>
+              <div class="gh-meta"><b>CasterlyGit</b> would open this in <b id="gh-repo">ambiguous — would ask</b></div>
+            </div>
+            <div class="gh-body" id="gh-body">No description yet. Start typing.</div>
+            <div class="gh-labels" id="gh-labels">
+              <span class="gh-label feature">feature</span>
+              <span class="gh-label p2">priority:p2</span>
+              <span class="gh-label size">size:S</span>
+            </div>
           </div>
-          <div class="col-name-row"><h3 class="name">scrum, JIRA, code review, deploy window</h3></div>
-          <div class="events" id="events-left"></div>
-          <div class="col-status" id="status-left"><span class="pip"></span>idle — press play to begin</div>
         </div>
-        <div class="race-col right">
-          <div class="col-head right">
-            <span class="label">workspace-tools</span>
-            <span class="clock mono">elapsed <b id="clock-right">00:00</b></span>
+        <div class="preview-col right">
+          <div class="col-lbl">gh CLI command preview</div>
+          <div class="cli-block">
+            <div class="cli-head">
+              <span>shell · what /file would run</span>
+              <button class="copy-btn" id="copy-btn" type="button">copy</button>
+            </div>
+            <pre id="cli-pre"><span class="acc">$</span> <span class="dim">// type above…</span></pre>
           </div>
-          <div class="col-name-row"><h3 class="name">obsidian + claude code + skills/</h3></div>
-          <div class="events" id="events-right"></div>
-          <div class="col-status" id="status-right"><span class="pip"></span>idle — press play to begin</div>
+          <div class="next-step">
+            <span class="arrow">→</span>
+            <span class="txt">next: <b id="next-step-skill">/iterate-fast</b> picks up the issue, branches, edits files, runs tests, opens a PR.</span>
+          </div>
         </div>
       </div>
 
-      <div class="race-foot">
-        <div class="col left">
-          <span class="lbl">traditional total</span>
-          <span class="num mono" id="total-left">--:--</span>
-          <span class="tiny" id="total-left-h">across calendar days</span>
-        </div>
-        <div class="col right">
-          <span class="lbl">workspace-tools total</span>
-          <span class="num mono" id="total-right">--:--</span>
-          <span class="tiny" id="total-right-h">one continuous run</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="gap-callout">
-      <div class="big mono" id="gap-num">--</div>
-      <div class="txt"><b>That is the gap.</b> Same ticket, same outcome, same diff. Every step on the right side is a real skill in <span class="mono" style="color:var(--accent)">~/.claude/commands/</span> that the user has actually run on shipping repos. The numbers on the right are believable; the numbers on the left are a generous estimate for a team that already has its act together.</div>
-    </div>
-
-    <div class="strip" id="strip">
-      <div class="step" data-i="0">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 1v22"/><path d="M19 8a7 7 0 11-14 0"/><rect x="9" y="2" width="6" height="12" rx="3"/></svg>
-        <div class="name">voice note</div>
-        <div class="desc">obsidian inbox/</div>
-      </div>
-      <div class="step" data-i="1">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9"/></svg>
-        <div class="name">github issue</div>
-        <div class="desc">/file → board</div>
-      </div>
-      <div class="step" data-i="2">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/><path d="M6 8v8M8 6c8 0 8 6 8 6"/></svg>
-        <div class="name">branch &amp; code</div>
-        <div class="desc">/iterate-fast</div>
-      </div>
-      <div class="step" data-i="3">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M6 8v10M18 8v8"/><path d="M8 6h7"/></svg>
-        <div class="name">PR opened</div>
-        <div class="desc">tests green</div>
+      <div class="router-foot">
+        <span class="live-dot"><span class="pip"></span> binding · input → routing → preview · re-renders on every keystroke</span>
+        <span><span id="char-count">0</span> chars · <span id="word-count">0</span> words</span>
       </div>
     </div>
   </div>
@@ -469,43 +472,10 @@
   <div class="wrap">
     <div class="section-head">
       <div class="num">02</div>
-      <h2>What just happened?</h2>
-      <span class="h2-sub">the asymmetry IS the demo</span>
-    </div>
-    <p class="sub" style="font-size: 14px;">One sentence in. A merged PR out. Here is the log, in fast-forward, of what the harness did in between.</p>
-
-    <div class="stream-frame">
-      <div class="stream-prompt">
-        <span class="label">human input</span>
-        <span class="quote">"<span class="you" id="prompt-text">add a debug log to the auth refresh path</span>"</span>
-        <span class="mic">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v3"/></svg>
-          <span class="waves" id="waves"><span></span><span></span><span></span><span></span><span></span></span>
-          <span id="mic-label">listening…</span>
-        </span>
-      </div>
-      <div class="stream-body" id="stream-body">
-        <div class="ln show"><span class="ts mono">[00:00:00]</span><span class="dim">// press "run stream" to replay…</span></div>
-      </div>
-      <div class="stream-foot">
-        <div class="stat">human input · <b id="stream-input">1 sentence</b>  ·  human keystrokes between idea and PR · <b id="stream-keys">0</b>  ·  total wall clock · <b id="stream-total">--:--</b></div>
-        <div class="actions">
-          <button class="btn ghost" id="stream-reset">reset</button>
-          <button class="btn" id="stream-play">run stream  ▸</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="wrap">
-    <div class="section-head">
-      <div class="num">03</div>
       <h2>Skills</h2>
       <span class="h2-sub">the receipt</span>
     </div>
-    <p class="sub" style="font-size: 14px;">The race above is not a fantasy. Each step maps to a markdown skill in this repo. Claude Code reads them as slash commands. Click any card to see how it is actually invoked.</p>
+    <p class="sub" style="font-size: 14px;">Each card is a real markdown skill in <span class="mono" style="color:var(--accent)">~/.claude/commands/</span>. Claude Code reads them as slash commands. Click any card to see how it is actually invoked.</p>
     <div class="skills-note">~/.claude/commands/ · 11 skills · all idempotent · all visible in the terminal</div>
     <div class="skills-grid" id="skills-grid"></div>
   </div>
@@ -514,7 +484,7 @@
 <section class="philo">
   <div class="wrap">
     <div class="section-head">
-      <div class="num">04</div>
+      <div class="num">03</div>
       <h2>Why this works</h2>
     </div>
     <p class="quote">Solo dev, AI augmented. The harness exists for one person who wants the throughput of a team — <em>no daemons, no web app, no permissions model.</em> Markdown is the API. Skills run visibly in a terminal. Every state can be rebuilt from disk on the next invocation.</p>
@@ -530,377 +500,260 @@
 <footer>
   <div class="wrap">
     <div class="row">
-      <span class="mono">workspace-tools</span>
-      <span>built by <a href="https://github.com/CasterlyGit" target="_blank" rel="noopener">@CasterlyGit</a> · <a href="https://github.com/CasterlyGit/workspace-tools" target="_blank" rel="noopener">source on github</a></span>
+      <span class="mono">agent-harness</span>
+      <span>built by <a href="https://github.com/CasterlyGit" target="_blank" rel="noopener">@CasterlyGit</a> · <a href="https://github.com/CasterlyGit/agent-harness" target="_blank" rel="noopener">source on github</a></span>
     </div>
   </div>
 </footer>
 
 <script>
 (function(){
-  // ===== utility =====
   const $ = (id) => document.getElementById(id);
-  function fmtMMSS(sec) {
-    sec = Math.max(0, Math.round(sec));
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
-  }
-  function fmtHMS(sec) {
-    sec = Math.max(0, Math.round(sec));
-    const h = Math.floor(sec / 3600);
-    const m = Math.floor((sec % 3600) / 60);
-    const s = sec % 60;
-    if (h > 0) return h + 'h ' + String(m).padStart(2,'0') + 'm';
-    return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
-  }
 
-  // ===== RACE =====
-  // events: { offset: realSecondsFromStart, dur: humanLabel, what: html, sub: html }
-  const LEFT_EVENTS = [
-    { at: 0,      dur: 'instant',  what: 'ticket dropped into <b>backlog</b>',                sub: 'sits until next planning meeting' },
-    { at: 14400,  dur: '45m',      what: '<b>backlog grooming</b>',                            sub: 'three people, two reschedules' },
-    { at: 28800,  dur: '60m',      what: '<b>sprint planning</b>: estimated 3 points',         sub: 'argued whether it is 2 or 5' },
-    { at: 32400,  dur: '30m',      what: '<b>design review</b> on the export format',          sub: 'parking lot: ".xlsx vs .csv"' },
-    { at: 43200,  dur: '4h',       what: '<b>implementation</b>, after standup, lunch, slack', sub: 'one PR draft, one revert' },
-    { at: 86400,  dur: '~1 day',   what: '<b>code review</b>: 2 reviewers, async',             sub: 'one nit, one rebase' },
-    { at: 100800, dur: '~4h',      what: 'address comments, push v2',                          sub: 'reviewer is in another timezone' },
-    { at: 115200, dur: '~4h',      what: '<b>merge</b> after CI re-runs',                      sub: 'next deploy window' },
+  // ===================== ROUTING RULES =====================
+  // Keyword -> repo map. Order matters: first hit wins.
+  const REPO_RULES = [
+    { repo: 'CasterlyGit/curby',           keywords: ['curby','cursor buddy','voice indicator','puck','menu bar','dictation overlay','obsidian watcher','inbox'] },
+    { repo: 'CasterlyGit/emergency-ai',    keywords: ['emergency','911','city','chicago','new york','seattle','los angeles','san francisco','austin','dispatch','triage'] },
+    { repo: 'CasterlyGit/laptop-dictation',keywords: ['dictation','whisper','transcribe','transcription','push-to-talk','ptt','clipboard','mic capture'] },
+    { repo: 'CasterlyGit/neon-stereo',     keywords: ['spotify','music','playlist','album','track','youtube music','soundcloud','audio player','stereo'] },
+    { repo: 'CasterlyGit/agent-harness',   keywords: ['harness','skill','iterate','epic','workflow','board','project','label','ticket router','watcher'] },
   ];
-  const RIGHT_EVENTS = [
-    { at: 0,    dur: '8s',   what: 'voice note dictated into <b>obsidian inbox</b>',             sub: '"add a CSV export button to the saved-tabs page"' },
-    { at: 12,   dur: '4s',   what: '<span class="mono" style="color:var(--accent)">/file</span> creates <b>issue #41</b> on the project board', sub: 'labels: feature · size:S · ready' },
-    { at: 18,   dur: '6s',   what: '<span class="mono" style="color:var(--accent)">/iterate-fast</span> picks it up, branch <b>feat/csv-export</b>', sub: 'git checkout, plan written to /tmp' },
-    { at: 35,   dur: '2m', what: 'agent <b>edits 3 files</b>: ExportPanel.tsx, export.ts, settings.tsx', sub: 'streaming diff visible in terminal' },
-    { at: 175,  dur: '45s',  what: '<b>tests</b> · 27 passed · 0 failed',                       sub: 'vitest, then lint, then typecheck' },
-    { at: 220,  dur: '6s',   what: '<b>git push</b> + <span class="mono" style="color:var(--accent)">gh pr create</span> · <b>PR #42</b> opened', sub: 'CI green within 90s' },
-    { at: 235,  dur: '17s',  what: 'PR url back to obsidian _status.md',                        sub: 'human reads diff, hits merge' },
-    { at: 252,  dur: 'click','what': '<b>merged</b> · branch deleted · row flipped to <span class="ok" style="color:var(--green)">done</span>', sub: 'state.json cleared' },
+
+  // Type rules — checked in order.
+  const TYPE_RULES = [
+    { type: 'bug',     keywords: ['bug','broken','breaks','crash','crashes','crashed','fails','failing','error','errors','hangs','freeze','freezes','regression','fix ','wont ',"won't",'doesn\'t','does not','hides','disappears','missing'] },
+    { type: 'polish',  keywords: ['polish','tweak','refine','tighten','clean up','cleanup','minor','small ux','easing','animation','padding','spacing','copy fix'] },
+    { type: 'chore',   keywords: ['refactor','rename','reorganize','move','upgrade','bump','dependency','deps','build config','tooling','lint','typecheck','ci '] },
+    { type: 'feature', keywords: ['add','support','introduce','new ','build ','implement','enable','expose','allow'] },
   ];
-  const LEFT_TOTAL  = 115200; // 32 hours wall — across calendar days
-  const RIGHT_TOTAL = 252;    // 4m 12s
 
-  // playback compresses real seconds into demo seconds. baseDemo = 18s for the whole right side.
-  // left compresses to whatever finishes ~3s after right at base 1x.
-  const RIGHT_DEMO_SECONDS_BASE = 18;
-  const LEFT_DEMO_SECONDS_BASE = 21;
+  // Priority rules.
+  const PRIO_RULES = [
+    { prio: 'P0', keywords: ['p0','critical','urgent','asap','blocking','blocker','prod down','production down','sev0','sev 0'] },
+    { prio: 'P1', keywords: ['p1','important','high priority','high-pri','today','this morning'] },
+    { prio: 'P3', keywords: ['p3','nice to have','someday','low priority','low-pri','eventually','backlog'] },
+  ];
 
-  let speedMul = 1;        // 1x, 2x, 4x
-  const SPEEDS = [1, 2, 4];
-  let speedIdx = 0;
+  // Big-job heuristics — push to /iterate or /epic.
+  const BIG_KEYWORDS = ['rewrite','overhaul','redesign','migrate','migration','epic','multi-part','multipart','end to end','end-to-end','from scratch','revamp','rebuild'];
 
-  let raceTimers = [];
-  let raceRunning = false;
-  let leftStartTs = 0, rightStartTs = 0;
-  let leftElapsedReal = 0, rightElapsedReal = 0;
-  let leftTickH = 0, rightTickH = 0;
+  // ===================== INFER =====================
+  function lower(s){ return (s||'').toLowerCase(); }
 
-  const eventsLeft = $('events-left');
-  const eventsRight = $('events-right');
-  const statusLeft = $('status-left');
-  const statusRight = $('status-right');
-  const clockLeft = $('clock-left');
-  const clockRight = $('clock-right');
-  const totalLeftEl = $('total-left');
-  const totalRightEl = $('total-right');
-  const totalLeftH = $('total-left-h');
-  const totalRightH = $('total-right-h');
-  const gapNum = $('gap-num');
-  const playBtn = $('play-btn');
-  const resetBtn = $('reset-btn');
-  const speedBtn = $('speed-btn');
-  const speedNum = $('speed-num');
-  const stripSteps = document.querySelectorAll('.strip .step');
-
-  function renderEventShells() {
-    eventsLeft.innerHTML = '';
-    eventsRight.innerHTML = '';
-    LEFT_EVENTS.forEach((e, i) => {
-      const el = document.createElement('div');
-      el.className = 'event';
-      el.dataset.i = i;
-      el.innerHTML = `
-        <div class="when mono">${fmtHMS(e.at)}</div>
-        <div class="what">${e.what}<span class="sub">${e.sub}</span></div>
-        <div class="dur">${e.dur}</div>`;
-      eventsLeft.appendChild(el);
-    });
-    RIGHT_EVENTS.forEach((e, i) => {
-      const el = document.createElement('div');
-      el.className = 'event';
-      el.dataset.i = i;
-      el.innerHTML = `
-        <div class="when mono">+${fmtMMSS(e.at)}</div>
-        <div class="what">${e.what}<span class="sub">${e.sub}</span></div>
-        <div class="dur">${e.dur}</div>`;
-      eventsRight.appendChild(el);
-    });
+  function inferRepo(text) {
+    const t = lower(text);
+    if (!t.trim()) return null;
+    for (const rule of REPO_RULES) {
+      for (const kw of rule.keywords) {
+        if (t.includes(kw)) return rule.repo;
+      }
+    }
+    return null;
   }
-  renderEventShells();
 
-  function clearTimers() {
-    raceTimers.forEach(t => { clearTimeout(t); clearInterval(t); });
-    raceTimers = [];
-    if (leftTickH) { clearInterval(leftTickH); leftTickH = 0; }
-    if (rightTickH) { clearInterval(rightTickH); rightTickH = 0; }
+  function inferType(text) {
+    const t = lower(text);
+    if (!t.trim()) return 'feature';
+    for (const rule of TYPE_RULES) {
+      for (const kw of rule.keywords) {
+        if (t.includes(kw)) return rule.type;
+      }
+    }
+    return 'feature';
   }
-  function sched(fn, ms) {
-    const t = setTimeout(fn, ms);
-    raceTimers.push(t);
+
+  function inferPriority(text) {
+    const t = lower(text);
+    if (!t.trim()) return 'P2';
+    for (const rule of PRIO_RULES) {
+      for (const kw of rule.keywords) {
+        if (t.includes(kw)) return rule.prio;
+      }
+    }
+    return 'P2';
+  }
+
+  function inferSize(text) {
+    const len = text.trim().length;
+    const words = text.trim().split(/\s+/).filter(Boolean).length;
+    if (words === 0) return 'S';
+    const t = lower(text);
+    const isBig = BIG_KEYWORDS.some(kw => t.includes(kw));
+    if (isBig) return 'L';
+    if (words > 22 || len > 140) return 'M';
+    return 'S';
+  }
+
+  function inferSkill(text) {
+    const t = lower(text);
+    const trimmed = text.trim();
+    if (!trimmed) return { primary: '/file', secondary: '/iterate-fast', note: 'small ticket → fast path' };
+    const isBig = BIG_KEYWORDS.some(kw => t.includes(kw));
+    const isEpic = /epic|multi-part|multipart|step\s*1|phase\s*1|in stages/i.test(text);
+    if (isEpic) return { primary: '/file', secondary: '/epic', note: 'multi-step → epic on one branch' };
+    if (isBig)  return { primary: '/file', secondary: '/iterate', note: 'larger ticket → full pipeline' };
+    return { primary: '/file', secondary: '/iterate-fast', note: 'small ticket → fast path' };
+  }
+
+  function titleFromText(text) {
+    const trimmed = text.trim();
+    if (!trimmed) return '';
+    // first sentence-ish, capped
+    let t = trimmed.split(/[\n.!?]/)[0].trim();
+    if (!t) t = trimmed;
+    // strip leading "add ", "fix " etc capitalization
+    if (t.length > 80) t = t.slice(0, 77).trim() + '…';
+    // capitalize first char
+    t = t.charAt(0).toUpperCase() + t.slice(1);
     return t;
   }
 
-  function resetRace() {
-    clearTimers();
-    raceRunning = false;
-    eventsLeft.querySelectorAll('.event').forEach(e => e.classList.remove('show','active'));
-    eventsRight.querySelectorAll('.event').forEach(e => e.classList.remove('show','active'));
-    stripSteps.forEach(s => s.classList.remove('lit'));
-    statusLeft.className = 'col-status';
-    statusLeft.innerHTML = '<span class="pip"></span>idle — press play to begin';
-    statusRight.className = 'col-status';
-    statusRight.innerHTML = '<span class="pip"></span>idle — press play to begin';
-    clockLeft.textContent = '00:00';
-    clockRight.textContent = '00:00';
-    totalLeftEl.textContent = '--:--';
-    totalRightEl.textContent = '--:--';
-    totalLeftH.textContent = 'across calendar days';
-    totalRightH.textContent = 'one continuous run';
-    gapNum.textContent = '--';
-    playBtn.disabled = false;
-    playBtn.textContent = 'play race  ▸';
+  function shellQuote(s) {
+    // safe-ish for the preview — just escape double quotes
+    return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   }
 
-  function setStatus(el, html, mode) {
-    el.className = 'col-status' + (mode ? ' ' + mode : '');
-    el.innerHTML = '<span class="pip"></span>' + html;
+  // ===================== RENDER =====================
+  const input = $('ticket-input');
+  const valRepo = $('val-repo');
+  const valType = $('val-type');
+  const valPrio = $('val-priority');
+  const valSkill = $('val-skill');
+  const chipRepo = $('chip-repo');
+  const chipType = $('chip-type');
+  const chipPrio = $('chip-priority');
+  const chipSkill = $('chip-skill');
+  const ghTitle = $('gh-title');
+  const ghBody  = $('gh-body');
+  const ghLabels = $('gh-labels');
+  const ghRepo = $('gh-repo');
+  const cliPre = $('cli-pre');
+  const nextStepSkill = $('next-step-skill');
+  const charCount = $('char-count');
+  const wordCount = $('word-count');
+  const copyBtn = $('copy-btn');
+
+  const prev = { repo: null, type: null, prio: null, skill: null };
+
+  function flash(chipEl) {
+    chipEl.classList.remove('changed');
+    // force reflow to restart transition
+    void chipEl.offsetWidth;
+    chipEl.classList.add('changed');
+    clearTimeout(chipEl._flashT);
+    chipEl._flashT = setTimeout(() => chipEl.classList.remove('changed'), 700);
   }
 
-  function startClock(which) {
-    const start = performance.now();
-    if (which === 'left') {
-      leftStartTs = start;
-      leftTickH = setInterval(() => {
-        const demoElapsed = (performance.now() - leftStartTs) / 1000;
-        const realSec = (demoElapsed / (LEFT_DEMO_SECONDS_BASE / speedMul)) * LEFT_TOTAL;
-        clockLeft.textContent = fmtHMS(Math.min(realSec, LEFT_TOTAL));
-      }, 50);
+  function render() {
+    const text = input.value;
+    const repo = inferRepo(text);
+    const type = inferType(text);
+    const prio = inferPriority(text);
+    const size = inferSize(text);
+    const skill = inferSkill(text);
+    const title = titleFromText(text);
+
+    // chips
+    if (repo) {
+      valRepo.classList.remove('dim');
+      valRepo.innerHTML = '<span class="accent">' + repo + '</span>';
     } else {
-      rightStartTs = start;
-      rightTickH = setInterval(() => {
-        const demoElapsed = (performance.now() - rightStartTs) / 1000;
-        const realSec = (demoElapsed / (RIGHT_DEMO_SECONDS_BASE / speedMul)) * RIGHT_TOTAL;
-        clockRight.textContent = fmtMMSS(Math.min(realSec, RIGHT_TOTAL));
-      }, 50);
+      valRepo.classList.add('dim');
+      valRepo.innerHTML = '<span class="ambiguous">ambiguous — would ask</span>';
     }
-  }
+    valType.textContent = type;
+    valPrio.textContent = prio;
+    valSkill.innerHTML = '<span class="accent">' + skill.primary + '</span> + <span class="accent">' + skill.secondary + '</span>';
 
-  function playRace() {
-    if (raceRunning) return;
-    resetRace();
-    raceRunning = true;
-    playBtn.disabled = true;
-    playBtn.textContent = 'running…';
+    if (repo !== prev.repo) flash(chipRepo);
+    if (type !== prev.type) flash(chipType);
+    if (prio !== prev.prio) flash(chipPrio);
+    const skillKey = skill.primary + '+' + skill.secondary;
+    if (skillKey !== prev.skill) flash(chipSkill);
+    prev.repo = repo; prev.type = type; prev.prio = prio; prev.skill = skillKey;
 
-    const leftDemo = LEFT_DEMO_SECONDS_BASE / speedMul;
-    const rightDemo = RIGHT_DEMO_SECONDS_BASE / speedMul;
-
-    // status live
-    setStatus(statusLeft, 'meetings, reviews, deploy windows…', 'live');
-    setStatus(statusRight, 'agent running · skills streaming', 'live');
-    startClock('left');
-    startClock('right');
-
-    // schedule LEFT events
-    LEFT_EVENTS.forEach((e, i) => {
-      const demoMs = (e.at / LEFT_TOTAL) * leftDemo * 1000;
-      sched(() => {
-        const el = eventsLeft.querySelector(`.event[data-i="${i}"]`);
-        if (!el) return;
-        el.classList.add('show', 'active');
-        // de-emphasize earlier
-        sched(() => el.classList.remove('active'), 1100 / speedMul);
-      }, demoMs);
-    });
-
-    // schedule RIGHT events + strip lighting
-    const stripMap = [0, 1, 2, 2, 2, 3, 3, 3];
-    RIGHT_EVENTS.forEach((e, i) => {
-      const demoMs = (e.at / RIGHT_TOTAL) * rightDemo * 1000;
-      sched(() => {
-        const el = eventsRight.querySelector(`.event[data-i="${i}"]`);
-        if (!el) return;
-        el.classList.add('show', 'active');
-        stripSteps.forEach((s, k) => s.classList.toggle('lit', k === stripMap[i]));
-        sched(() => el.classList.remove('active'), 900 / speedMul);
-      }, demoMs);
-    });
-
-    // RIGHT finish
-    sched(() => {
-      if (rightTickH) { clearInterval(rightTickH); rightTickH = 0; }
-      clockRight.textContent = fmtMMSS(RIGHT_TOTAL);
-      totalRightEl.textContent = fmtMMSS(RIGHT_TOTAL);
-      totalRightH.textContent = '4 min 12 sec, one continuous run';
-      setStatus(statusRight, 'PR #42 merged · row flipped to done', 'done');
-    }, rightDemo * 1000 + 200);
-
-    // LEFT finish
-    sched(() => {
-      if (leftTickH) { clearInterval(leftTickH); leftTickH = 0; }
-      clockLeft.textContent = fmtHMS(LEFT_TOTAL);
-      totalLeftEl.textContent = fmtHMS(LEFT_TOTAL);
-      totalLeftH.textContent = '~32 hours, across 3 calendar days';
-      setStatus(statusLeft, 'PR merged after the next deploy window', 'done');
-      // gap calc
-      const ratio = Math.round(LEFT_TOTAL / RIGHT_TOTAL);
-      gapNum.textContent = ratio + 'x';
-      playBtn.disabled = false;
-      playBtn.textContent = 'replay  ↻';
-      raceRunning = false;
-      stripSteps.forEach(s => s.classList.remove('lit'));
-      stripSteps[3].classList.add('lit');
-    }, leftDemo * 1000 + 300);
-  }
-
-  function cycleSpeed() {
-    speedIdx = (speedIdx + 1) % SPEEDS.length;
-    speedMul = SPEEDS[speedIdx];
-    speedBtn.textContent = 'speed · ' + speedMul + 'x';
-    speedNum.textContent = speedMul + 'x';
-    if (raceRunning) {
-      // restart with new speed
-      playRace();
+    // github issue card
+    if (title) {
+      ghTitle.textContent = title;
+      ghBody.textContent = text.trim();
+    } else {
+      ghTitle.textContent = 'drop a sentence above to begin';
+      ghBody.textContent = 'No description yet. Start typing.';
     }
+    ghRepo.textContent = repo || 'ambiguous — would ask';
+
+    // labels
+    const prioLower = prio.toLowerCase();
+    ghLabels.innerHTML = ''
+      + '<span class="gh-label ' + type + '">' + type + '</span>'
+      + '<span class="gh-label ' + prioLower + '">priority:' + prioLower + '</span>'
+      + '<span class="gh-label size">size:' + size + '</span>';
+
+    // cli preview
+    if (!text.trim()) {
+      cliPre.innerHTML = '<span class="acc">$</span> <span class="dim">// type above…</span>';
+    } else {
+      const repoFlag = repo || 'CasterlyGit/&lt;ambiguous&gt;';
+      const titleQ = shellQuote(title);
+      const bodyOneLine = shellQuote(text.trim().replace(/\s+/g, ' '));
+      const cmd = ''
+        + '<span class="acc">$</span> gh issue create \\\n'
+        + '    <span class="flag">--repo</span> <span class="str">' + repoFlag + '</span> \\\n'
+        + '    <span class="flag">--title</span> <span class="str">"' + titleQ + '"</span> \\\n'
+        + '    <span class="flag">--body</span>  <span class="str">"' + bodyOneLine + '"</span> \\\n'
+        + '    <span class="flag">--label</span> <span class="str">' + type + '</span> \\\n'
+        + '    <span class="flag">--label</span> <span class="str">priority:' + prioLower + '</span> \\\n'
+        + '    <span class="flag">--label</span> <span class="str">size:' + size + '</span>\n'
+        + '<span class="dim"># then:</span>\n'
+        + '<span class="acc">$</span> claude ' + skill.secondary + ' &lt;issue-url&gt;';
+      cliPre.innerHTML = cmd;
+    }
+
+    // next step
+    nextStepSkill.textContent = skill.secondary;
+
+    // counters
+    charCount.textContent = text.length;
+    wordCount.textContent = text.trim() ? text.trim().split(/\s+/).length : 0;
   }
 
-  playBtn.addEventListener('click', playRace);
-  resetBtn.addEventListener('click', resetRace);
-  speedBtn.addEventListener('click', cycleSpeed);
+  // ===================== WIRE =====================
+  input.addEventListener('input', render);
 
-  // Auto-play once when race scrolls into view
-  let autoPlayed = false;
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach(e => {
-      if (e.isIntersecting && !autoPlayed) {
-        autoPlayed = true;
-        sched(playRace, 350);
-      }
-    });
-  }, { threshold: 0.35 });
-  io.observe(document.querySelector('.race-frame'));
-
-  // strip hover preview
-  stripSteps.forEach((s, i) => {
-    s.addEventListener('mouseenter', () => {
-      if (raceRunning) return;
-      stripSteps.forEach(x => x.classList.remove('lit'));
-      s.classList.add('lit');
-    });
-    s.addEventListener('mouseleave', () => {
-      if (raceRunning) return;
-      s.classList.remove('lit');
+  // example chips
+  document.querySelectorAll('.examples .ex').forEach(el => {
+    el.addEventListener('click', () => {
+      input.value = el.dataset.ex || '';
+      input.focus();
+      render();
     });
   });
 
-  // ===== STREAM =====
-  const STREAM = [
-    { t: 0,    text: '<span class="ts mono">[00:00:00]</span><span class="dim">obsidian watcher · idle</span>' },
-    { t: 200,  text: '<span class="ts mono">[00:00:03]</span><span class="tag">[mic]</span> recording started · whisper-tiny.en' },
-    { t: 500,  text: '<span class="ts mono">[00:00:08]</span><span class="tag">[mic]</span> recording stopped · 1 sentence · 11 words' },
-    { t: 700,  text: '<span class="ts mono">[00:00:09]</span><span class="tag">[obsidian]</span> inbox/<span class="file">add-debug-log.md</span> <span class="acc">+1</span>' },
-    { t: 900,  text: '<span class="ts mono">[00:00:11]</span><span class="tag">[watch]</span> fswatch · state.json updated' },
-    { t: 1100, text: '<span class="blank"></span>' },
-    { t: 1150, text: '<span class="ts mono">[00:00:14]</span><span class="acc">$</span> claude /file curby/inbox/add-debug-log.md' },
-    { t: 1400, text: '<span class="ts mono">[00:00:17]</span><span class="dim">→</span> drafting title and body from spec' },
-    { t: 1700, text: '<span class="ts mono">[00:00:21]</span><span class="dim">→</span> gh issue create --label feature --project Workspace' },
-    { t: 2000, text: '<span class="ts mono">[00:00:24]</span><span class="ok">✓</span> issue <span class="acc">#47</span> created · "add debug log to auth refresh path"' },
-    { t: 2200, text: '<span class="blank"></span>' },
-    { t: 2300, text: '<span class="ts mono">[00:00:26]</span><span class="acc">$</span> claude /iterate-fast curby#47' },
-    { t: 2600, text: '<span class="ts mono">[00:00:29]</span><span class="dim">→</span> reading repo · src/auth/refresh.ts · src/auth/__tests__' },
-    { t: 3000, text: '<span class="ts mono">[00:00:34]</span><span class="dim">→</span> plan: 1 file change, 1 test added' },
-    { t: 3300, text: '<span class="ts mono">[00:00:37]</span><span class="dim">→</span> git checkout -b <span class="acc">feat/auth-refresh-log</span>' },
-    { t: 3700, text: '<span class="ts mono">[00:00:42]</span><span class="dim">→</span> editing <span class="file">src/auth/refresh.ts</span>' },
-    { t: 4400, text: '<span class="ts mono">[00:01:01]</span><span class="dim">→</span> editing <span class="file">src/auth/__tests__/refresh.test.ts</span>' },
-    { t: 5100, text: '<span class="ts mono">[00:01:23]</span><span class="dim">→</span> npm test' },
-    { t: 5800, text: '<span class="ts mono">[00:01:47]</span><span class="ok">✓</span> 142 passed · 0 failed · 1.8s' },
-    { t: 6100, text: '<span class="ts mono">[00:01:52]</span><span class="dim">→</span> npm run lint && tsc --noEmit' },
-    { t: 6500, text: '<span class="ts mono">[00:02:04]</span><span class="ok">✓</span> lint clean · types clean' },
-    { t: 6700, text: '<span class="blank"></span>' },
-    { t: 6800, text: '<span class="ts mono">[00:02:09]</span><span class="dim">→</span> git add -A && git commit -m "auth: trace refresh path"' },
-    { t: 7100, text: '<span class="ts mono">[00:02:18]</span><span class="dim">→</span> git push -u origin <span class="acc">feat/auth-refresh-log</span>' },
-    { t: 7500, text: '<span class="ts mono">[00:02:34]</span><span class="dim">→</span> gh pr create --title "auth: trace refresh path"' },
-    { t: 7900, text: '<span class="ts mono">[00:02:51]</span><span class="ok">✓</span> PR <span class="acc">#48</span> opened · <span class="acc">github.com/CasterlyGit/curby/pull/48</span>' },
-    { t: 8200, text: '<span class="ts mono">[00:03:02]</span><span class="dim">→</span> CI · vitest · lint · typecheck · build' },
-    { t: 8900, text: '<span class="ts mono">[00:03:28]</span><span class="ok">✓</span> CI green · all checks passed' },
-    { t: 9100, text: '<span class="ts mono">[00:03:34]</span><span class="tag">[obsidian]</span> _status.md ← <span class="acc">add-debug-log</span> · <span class="ok">ready for review</span>' },
-    { t: 9400, text: '<span class="blank"></span>' },
-    { t: 9500, text: '<span class="ts mono">[00:03:42]</span><span class="ok">PR ready for review.</span> Total human input: <span class="acc">1 sentence.</span> Total human keystrokes: <span class="acc">0.</span>' },
-  ];
-  const STREAM_TOTAL_REAL = 222; // 3m 42s
-  const STREAM_DEMO_MS = 14000;  // compress to 14s of demo time
-  const streamBody = $('stream-body');
-  const streamPlay = $('stream-play');
-  const streamReset = $('stream-reset');
-  const streamTotal = $('stream-total');
-  const micLabel = $('mic-label');
-  const waves = $('waves');
-  let streamTimers = [];
-  let streamRunning = false;
+  // copy button
+  copyBtn.addEventListener('click', () => {
+    const text = cliPre.textContent.replace(/^\$\s/, '').trim();
+    if (!text || text.includes('// type above')) return;
+    try {
+      navigator.clipboard.writeText(text);
+      copyBtn.classList.add('copied');
+      copyBtn.textContent = 'copied';
+      setTimeout(() => { copyBtn.classList.remove('copied'); copyBtn.textContent = 'copy'; }, 1200);
+    } catch (e) {
+      // ignore
+    }
+  });
 
-  function schedStream(fn, ms) {
-    const t = setTimeout(fn, ms);
-    streamTimers.push(t);
-    return t;
-  }
-  function clearStreamTimers() {
-    streamTimers.forEach(t => clearTimeout(t));
-    streamTimers = [];
-  }
-  function resetStream() {
-    clearStreamTimers();
-    streamRunning = false;
-    streamBody.innerHTML = '<div class="ln show"><span class="ts mono">[00:00:00]</span><span class="dim">// press "run stream" to replay…</span></div>';
-    streamTotal.textContent = '--:--';
-    streamPlay.disabled = false;
-    streamPlay.textContent = 'run stream  ▸';
-    micLabel.textContent = 'listening…';
-    waves.style.opacity = '1';
-  }
-  function playStream() {
-    if (streamRunning) return;
-    resetStream();
-    streamRunning = true;
-    streamPlay.disabled = true;
-    streamPlay.textContent = 'streaming…';
-    streamBody.innerHTML = '';
-    const totalT = STREAM[STREAM.length-1].t;
-    STREAM.forEach((line, i) => {
-      const demoMs = (line.t / totalT) * STREAM_DEMO_MS;
-      schedStream(() => {
-        const div = document.createElement('div');
-        div.className = 'ln';
-        div.innerHTML = line.text;
-        streamBody.appendChild(div);
-        // force reflow then animate in
-        requestAnimationFrame(() => div.classList.add('show'));
-        streamBody.scrollTop = streamBody.scrollHeight;
-        if (i === 2) { micLabel.textContent = 'transcribed'; waves.style.opacity = '0.3'; }
-      }, demoMs);
-    });
-    schedStream(() => {
-      streamTotal.textContent = '03:42';
-      streamPlay.disabled = false;
-      streamPlay.textContent = 'replay  ↻';
-      streamRunning = false;
-    }, STREAM_DEMO_MS + 200);
-  }
-  streamPlay.addEventListener('click', playStream);
-  streamReset.addEventListener('click', resetStream);
+  // seed with placeholder text
+  input.value = 'voice indicator hides under the menu bar';
+  render();
+  // first-time chip flash so the visitor sees animation immediately
+  prev.repo = null; prev.type = null; prev.prio = null; prev.skill = null;
+  render();
 
-  // ===== SKILLS GALLERY =====
+  // ===================== SKILLS GALLERY =====================
   const skills = [
-    {name: '/iterate-fast', line: 'inbox ticket → issue → branch → code → test → PR. 3-8 min.', cmd: 'claude /iterate-fast ~/Documents/Dev/curby/inbox/add-export.md'},
+    {name: '/iterate-fast', line: 'Inbox ticket → issue → branch → code → test → PR. 3-8 min.', cmd: 'claude /iterate-fast ~/Documents/Dev/curby/inbox/add-export.md'},
     {name: '/pr-amend',     line: 'Read latest PR comment, implement delta, push, reply. 2-5 min.', cmd: 'claude /pr-amend https://github.com/CasterlyGit/curby/pull/42'},
     {name: '/file',         line: 'Quick GitHub issue filer. Lands on the right project board.',    cmd: 'claude /file "add CSV export to settings page"'},
     {name: '/iterate',      line: 'Brownfield: issue → SDD pipeline → PR. Single fast call default.', cmd: 'claude /iterate https://github.com/CasterlyGit/curby/issues/17'},
@@ -916,11 +769,10 @@
   skills.forEach(s => {
     const el = document.createElement('div');
     el.className = 'skill-card';
-    el.innerHTML = `
-      <div class="name">${s.name}</div>
-      <div class="one-line">${s.line}</div>
-      <div class="invoke"><span class="acc">$</span> ${s.cmd}</div>
-    `;
+    el.innerHTML = ''
+      + '<div class="name">' + s.name + '</div>'
+      + '<div class="one-line">' + s.line + '</div>'
+      + '<div class="invoke"><span class="acc">$</span> ' + s.cmd + '</div>';
     el.addEventListener('click', () => el.classList.toggle('open'));
     grid.appendChild(el);
   });
