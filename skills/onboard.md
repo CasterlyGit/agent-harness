@@ -68,7 +68,28 @@ git switch main
 
 If nothing was added, skip the branch entirely.
 
-### 6. Backfill existing issues into the project
+### 6. Install board-sync workflow
+
+Drop the standard board-sync workflow so PR/issue events auto-update the Workspace project Status.
+
+```bash
+mkdir -p "$LOCAL/.github/workflows"
+[ -f "$LOCAL/.github/workflows/board-sync.yml" ] || \
+  cp ~/Documents/Dev/workspace-tools/skills/_board-sync-workflow.yml "$LOCAL/.github/workflows/board-sync.yml"
+```
+
+If added, commit + push (same chore branch if you opened one in step 5, otherwise straight to main):
+
+```bash
+cd "$LOCAL"
+git add .github/workflows/board-sync.yml
+git commit -m "Add board-sync workflow — auto-update Workspace project Status on PR/issue events"
+git push
+```
+
+Remind the user once per onboarding (in the final summary) that the workflow needs a `PROJECT_TOKEN` repo secret — a fine-grained PAT with Projects: Read/Write, Issues: Read, Pull requests: Read. Without it the workflow silently no-ops. Setup URL: `https://github.com/<owner>/<repo>/settings/secrets/actions/new`.
+
+### 7. Backfill existing issues into the project
 
 ```bash
 gh issue list --repo <owner>/<repo> --state open --json url --jq '.[].url' | while read URL; do
@@ -76,7 +97,7 @@ gh issue list --repo <owner>/<repo> --state open --json url --jq '.[].url' | whi
 done
 ```
 
-### 7. Print summary
+### 8. Print summary
 
 ```
 Onboarded <owner>/<repo>:

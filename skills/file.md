@@ -42,11 +42,30 @@ PROJECT_NUM=$(gh project list --owner @me --format json --jq ".projects[] | sele
 [ -n "$PROJECT_NUM" ] && gh project item-add "$PROJECT_NUM" --owner @me --url "<issue-url>"
 ```
 
-Also add to the hub:
+Also add to the hub AND set Status=Backlog + Priority on the card so it actually shows up in a column (not in the "no-status" bucket):
 
 ```bash
 HUB_NUM=$(gh project list --owner @me --format json --jq '.projects[] | select(.title=="Workspace") | .number')
-[ -n "$HUB_NUM" ] && gh project item-add "$HUB_NUM" --owner @me --url "<issue-url>"
+if [ -n "$HUB_NUM" ]; then
+  # Add the issue to the hub project and capture the item id
+  ITEM_ID=$(gh project item-add "$HUB_NUM" --owner @me --url "<issue-url>" --format json --jq .id)
+
+  # Resolve project/field/option IDs
+  PROJECT_ID=$(gh project view "$HUB_NUM" --owner @me --format json --jq .id)
+  STATUS_FIELD_ID=$(gh project field-list "$HUB_NUM" --owner @me --format json --jq '.fields[] | select(.name=="Status") | .id')
+  STATUS_BACKLOG_ID=$(gh project field-list "$HUB_NUM" --owner @me --format json --jq '.fields[] | select(.name=="Status") | .options[] | select(.name=="Backlog") | .id')
+  PRIORITY_FIELD_ID=$(gh project field-list "$HUB_NUM" --owner @me --format json --jq '.fields[] | select(.name=="Priority") | .id')
+
+  # Set Status=Backlog
+  gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" \
+    --field-id "$STATUS_FIELD_ID" --single-select-option-id "$STATUS_BACKLOG_ID"
+
+  # Set Priority — map parsed priority (defaults to P2)
+  PRI_NAME=$(echo "${PRIORITY:-p2}" | tr '[:lower:]' '[:upper:]')
+  PRI_OPT_ID=$(gh project field-list "$HUB_NUM" --owner @me --format json --jq ".fields[] | select(.name==\"Priority\") | .options[] | select(.name==\"$PRI_NAME\") | .id")
+  [ -n "$PRI_OPT_ID" ] && gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_ID" \
+    --field-id "$PRIORITY_FIELD_ID" --single-select-option-id "$PRI_OPT_ID"
+fi
 ```
 
 ## Report
